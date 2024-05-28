@@ -1,7 +1,11 @@
 #!/bin/bash
 
+# (c) Jakub Szczepa 2024, systemy operacyjne kl. 2 2023/24, ZSŁ Kraków
+
+
+
 # Konfiguracja
-debug=1 #0 - tryb debugowania wyłączony, 1 - tryb debugowania włączony
+debug=0 #0 - tryb debugowania wyłączony, 1 - tryb debugowania włączony
 debug_predkosc=1 #Czas oczekiwania po każdej informacji z trybu debugowania
 menu_wymiary="27 60" #Wymiary menu (wysokość szerokość)
 menu_wymiary_blad_root="7 41" #Wymiary menu błędu braku uprawnień roota
@@ -9,11 +13,19 @@ menu_wymiary_blad_root="7 41" #Wymiary menu błędu braku uprawnień roota
 
 
 # Wyłączanie skryptu
-trap 'status=1' SIGINT
+trap 'wylacz' SIGINT SIGTERM SIGTSTP SIGQUIT SIGKILL SIGSTOP
 
 
 
 # Funkcje
+
+# Wyłączenie skryptu przez Ctrl+C
+wylacz() {
+    debug "Użytkownik wciskął Ctrl+C, natychmiastowe wyłączanie skryptu..."
+    clear
+    exit 0
+}
+
 
 # Debugowanie
 debug() {
@@ -110,7 +122,7 @@ menu_glowne() {
             if [ -n "$czy_root" ]; then
                 debug "Zmiana daty systemowej"
                 menu_4_nowa_data=$(dialog --stdout --backtitle "(c) Jakub Szczepa 2024" --title "Zmiana daty systemowej" \
-                    --inputbox "Podaj nową datę systemową (RRRR-MM-DD):" $menu_wymiary)
+                    --inputbox "Podaj nową datę systemową (RRRR-MM-DD):" 7 60)
                 debug $menu_4_nowa_data
                 date -s "$menu_4_nowa_data"
             else
@@ -121,7 +133,7 @@ menu_glowne() {
         6)
             if [ -n "$czy_root" ]; then
                 menu_4_nowa_godzina=$(dialog --stdout --backtitle "(c) Jakub Szczepa 2024" --title "Zmiana czasu systemowego" \
-                    --inputbox "Podaj nowy czas systemowy (GG:MM:SS):" $menu_wymiary)
+                    --inputbox "Podaj nowy czas systemowy (GG:MM:SS):" 7 60)
                 debug $menu_4_nowa_godzina
                 date -s "$menu_4_nowa_godzina"
             else
@@ -136,23 +148,25 @@ menu_glowne() {
         8)
             if [ -n "$czy_root" ]; then
                 menu_7_wybor=$(dialog --stdout --backtitle "(c) Jakub Szczepa 2024" --title "Zmiana konfiguracji sieci" \
-                    --menu "Wybierz opcję:" $menu_wymiary 1 1 "Automatyczna konfiguracja (DHCP)" 2 "Ręczne wprowadzenie parametrów" )
+                    --menu "Wybierz opcję:" 9 60 1 1 "Automatyczna konfiguracja (DHCP)" 2 "Ręczne wprowadzenie parametrów" )
 
                     case $menu_7_wybor in
                     1)
-                        dhclient
+                        menu_7_interfejs=$(dialog --stdout --backtitle "(c) Jakub Szczepa 2024" --title "Ręczna konfiguracja sieci" \
+                            --inputbox "Podaj nazwę interfejsu sieciowego:" 7 60)
+                        dhclient $menu_7_interfejs
                         ;;
                     2)
                         menu_7_interfejs=$(dialog --stdout --backtitle "(c) Jakub Szczepa 2024" --title "Ręczna konfiguracja sieci" \
-                            --inputbox "Podaj nazwę interfejsu sieciowego:" $menu_wymiary)
+                            --inputbox "Podaj nazwę interfejsu sieciowego:" 7 60)
                         menu_7_ip=$(dialog --stdout --backtitle "(c) Jakub Szczepa 2024" --title "Ręczna konfiguracja sieci" \
-                            --inputbox "Podaj adres IP:" $menu_wymiary)
+                            --inputbox "Podaj adres IP:" 7 60)
                         menu_7_maska=$(dialog --stdout --backtitle "(c) Jakub Szczepa 2024" --title "Ręczna konfiguracja sieci" \
-                            --inputbox "Podaj maskę podsieci:" $menu_wymiary)
+                            --inputbox "Podaj maskę podsieci:" 7 60)
                         menu_7_brama=$(dialog --stdout --backtitle "(c) Jakub Szczepa 2024" --title "Ręczna konfiguracja sieci" \
-                            --inputbox "Podaj bramę:" $menu_wymiary) 
+                            --inputbox "Podaj bramę:" 7 60) 
                         menu_7_dns=$(dialog --stdout --backtitle "(c) Jakub Szczepa 2024" --title "Ręczna konfiguracja sieci" \
-                            --inputbox "Podaj DNS:" $menu_wymiary)
+                            --inputbox "Podaj DNS:" 7 60)
 
                         ifconfig $menu_7_interfejs $menu_7_ip netmask $menu_7_maska
                         route add default gw $menu_7_brama
@@ -170,24 +184,25 @@ menu_glowne() {
             ;;
 
         10) 
-            #Do naprawienia
             menu_9_wybor=$(dialog --stdout --backtitle "(c) Jakub Szczepa 2024" --title "Utwórz komunikat wyświetlany raz dziennie" \
                 --menu "Wybierz treść komunikatu:" 9 60 1 \
                 1 "\"Lubię uczyć się do egzaminu INF.02.\"" \
                 2 "Wprowadź własną treść" )
             case $menu_9_wybor in
                 1)
-                    (crontab -l 2>/dev/null; echo "0 12 * * * DBUS_SESSION_BUS_ADDRESS=/run/user/1000/path DISPLAY=:0 notify-send 'Lubię uczyć się do egzaminu INF.02.'") | crontab -
-                    (crontab -l 2>/dev/null; echo "0 12 * * * mkdir /tmp/kaka") | crontab -
+                    (crontab -l 2>/dev/null; echo "0 12 * * * DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus notify-send 'Lubię uczyć się do egzaminu INF.02.'") | crontab -
                     ;;
                 2)
-                    dialog --stdout --backtitle "(c) Jakub Szczepa 2024" --title "Utwórz komunikat wyświetlany raz dziennie" --inputbox "Podaj treść komunikatu:" $menu_wymiary > /etc/cron.daily/komunikat_menu_linux
+                    menu_9_1_tresc=$(dialog --stdout --backtitle "(c) Jakub Szczepa 2024" --title "Utwórz własny komunikat" --inputbox "Podaj treść komunikatu:" 7 60)
+                    (crontab -l 2>/dev/null; echo "0 12 * * * DISPLAY=:0 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus notify-send '$menu_9_1_tresc'") | crontab -
                     ;;
             esac
+            dialog --backtitle "(c) Jakub Szczepa 2024" --title "Utwórz komunikat" --msgbox "\n  Komunikat został utworzony." 6 35
+            #Aby sprawdzić czy zadziałało trzeba ustawić czas na conajmniej jeden dzień wcześniej minutę przed godziną 12 - sudo date -s " 2024-05-27 11:58:50"
             ;;
 
         11)
-            dialog --backtitle "(c) Jakub Szczepa 2024" --title "Pliki tymczasowe" --msgbox "\n$(ls /tmp/)" 20 60
+            dialog --backtitle "(c) Jakub Szczepa 2024" --title "Pliki tymczasowe" --msgbox "$(ls /tmp/)" 20 60
             ;;
 
         12)
@@ -228,11 +243,15 @@ menu_glowne() {
 
         17)
             dialog --backtitle "(c) Jakub Szczepa 2024" --title "Zrzut ekranu" \
-            --inputbox "Podaj nazwę pliku, do którego chcesz zapisać zrzut ekranu:" $menu_wymiary 2> /tmp/zrzut
+            --infobox "\n          Wykonywanie zrzutu ekranu..." 5 50
+            sleep 1
+            gnome-screenshot -f "/home/$(whoami)/Pulpit/zrzut_ekranu_$(date +%Y-%m-%d_%H-%M-%S).png"
+            dialog --backtitle "(c) Jakub Szczepa 2024" --title "Zrzut ekranu" \
+            --msgbox "\n   Zrzut ekranu został zapisany na pulpicie." 6 50
+            
             ;;
 
         18)
-            #Naprawić pytania bez odpowiedzi
             dialog --backtitle "(c) Jakub Szczepa 2024" --title "Egzamin próbny" \
             --yesno "\n Egzamin składa się z 5 pytań. Każde
             \n pytanie ma cztery odpowiedzi (A, B, C, D), 
@@ -279,7 +298,7 @@ menu_glowne() {
             ;;
 
         *)
-            status=2
+            status=1
             ;;
 
     esac
@@ -353,6 +372,7 @@ egzamin() {
                 egzamin_pyt2_wynik="nie podano odpowiedzi, zamiast: B"
             else
                 egzamin_pyt2_wynik="niepoprawna odpowiedź ($egzamin_pyt2_odp), zamiast: B"
+                egzamin_pyt_niepoprawne=$((egzamin_pyt_niepoprawne+1))
             fi
         fi
 
@@ -373,6 +393,7 @@ egzamin() {
                 egzamin_pyt3_wynik="nie podano odpowiedzi, zamiast: C"
             else
                 egzamin_pyt3_wynik="niepoprawna odpowiedź ($egzamin_pyt3_odp), zamiast: C"
+                egzamin_pyt_niepoprawne=$((egzamin_pyt_niepoprawne+1))
             fi
         fi
         pkill eog
@@ -393,6 +414,7 @@ egzamin() {
                 egzamin_pyt4_wynik="nie podano odpowiedzi, zamiast: D"
             else
                 egzamin_pyt4_wynik="niepoprawna odpowiedź ($egzamin_pyt4_odp), zamiast: D"
+                egzamin_pyt_niepoprawne=$((egzamin_pyt_niepoprawne+1))
             fi
         fi
 
@@ -413,6 +435,7 @@ egzamin() {
                 egzamin_pyt5_wynik="nie podano odpowiedzi, zamiast: A"
             else
                 egzamin_pyt5_wynik="niepoprawna odpowiedź ($egzamin_pyt5_odp), zamiast: A"
+                egzamin_pyt_niepoprawne=$((egzamin_pyt_niepoprawne+1))
             fi
         fi
         pkill eog
@@ -462,16 +485,16 @@ egzamin() {
         debug "Uruchomiono jako zwykły użytkownik"
         czy_root=""
 
-        dialog --backtitle "(c) Jakub Szczepa 2024" --title "Ostrzeżenie" \
-            --yesno "\n Skrypt został uruchomiony bez\n uprawnień administratora. 
-            \n Niektóre funkcje nie będą dostępne.\n\n   Czy mimo to chcesz kontynuować?" 10 42
-
-        if [ $? -eq 0 ]; then
-            debug "Użytkownik wybrał kontynuację"
-        else
-            debug "Użytkownik wybrał anulowanie"
-            exit 0
-        fi
+    #    dialog --backtitle "(c) Jakub Szczepa 2024" --title "Ostrzeżenie" \
+    #        --yesno "\n Skrypt został uruchomiony bez\n uprawnień administratora. 
+    #        \n Niektóre funkcje nie będą dostępne.\n\n   Czy mimo to chcesz kontynuować?" 10 42
+    #
+    #    if [ $? -eq 0 ]; then
+    #        debug "Użytkownik wybrał kontynuację"
+    #    else
+    #        debug "Użytkownik wybrał anulowanie"
+    #        exit 0
+    #    fi
     fi
 
     # Główna pętla
